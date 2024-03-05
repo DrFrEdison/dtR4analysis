@@ -68,19 +68,21 @@ validation.csv <- function(pattern = "_SDS_validation_set.csv"
 # Do statistics for validation set ####
 validation.spc <- function( spc = spc.val$pca$spc.lambda1
                             , ncomp = 2
-                            , limT2 = sds$para$limT2
-                            , limQ = sds$para$limQ
+                            , lim.alpha = sds$para$lim.alpha
+                            , lim.gamma = sds$para$lim.gamma
                             , lim.type = sds$para$lim.type
                             # , limLOOP = .8
                             # , k.LOOP = 5
                             # , lambda.LOOP = 7
                             # , limiF = .8
-                            ){
+){
 
   spc.val <- list()
   spc.val$pca <- mdatools::pca(spc
                                , ncomp = ncomp
-                               , lim.type = lim.type)
+                               , lim.type = lim.type
+                               , alpha = lim.alpha
+                               , gamma = lim.gamma)
 
   # spc.val$isolationForest <- isotree::isolation.forest( spc )
   # spc.val$anomaly_scores <- predict(spc.val$isolationForest, newdata = spc)
@@ -96,9 +98,17 @@ validation.spc.val <- function(spc
                                , ppp
                                , lambda
                                , n){
-  lambda.choose <- unique(c(min(lambda), max(lambda), sample(lambda, 3)))
-
   pca.sub <- mdatools::pca(spc[, ppp$numcol[ ppp$wl %in% lambda ], with = F], ncomp = 2)
+
+  Q.range.1 <- which( pca.sub$calres$Q[,1] >= quantile(pca.sub$calres$Q[,1], probs = c(.4, .6))[ 1 ] &
+                        pca.sub$calres$Q[,1] <=  quantile(pca.sub$calres$Q[,1], probs = c(.4, .6))[ 2 ])
+  Q.range.2 <- which( pca.sub$calres$Q[,2] >= quantile(pca.sub$calres$Q[,2], probs = c(.4, .6))[ 1 ] &
+                        pca.sub$calres$Q[,2] <=  quantile(pca.sub$calres$Q[,2], probs = c(.4, .6))[ 2 ])
+  T2.range.1 <- which( pca.sub$calres$T2[,1] >= quantile(pca.sub$calres$T2[,1], probs = c(.4, .6))[ 1 ] &
+                         pca.sub$calres$T2[,1] <=  quantile(pca.sub$calres$T2[,1], probs = c(.4, .6))[ 2 ])
+  T2.range.2 <- which( pca.sub$calres$T2[,2] >= quantile(pca.sub$calres$T2[,2], probs = c(.4, .6))[ 1 ] &
+                         pca.sub$calres$T2[,2] <=  quantile(pca.sub$calres$T2[,2], probs = c(.4, .6))[ 2 ])
+
   pca.sub.order.Q.1 <- order(pca.sub$calres$Q[ , 1])
   pca.sub.order.Q.2 <- order(pca.sub$calres$Q[ , 2])
   pca.sub.order.T2.1 <- order(pca.sub$calres$T2[ , 1])
@@ -108,27 +118,26 @@ validation.spc.val <- function(spc
 
   choose.low <- 1:n
   choose.high <- spc.length : (spc.length - (n - 1))
-  choose.middle <- c(spc.length / 2 - round(n / 2, 0), spc.length / 2, spc.length / 2 + round(n / 2, 0))
+  choose.middle <- round(spc.length / 2, 0) - round((n - 1) / 2, 0) : round(spc.length / 2, 0) + round((n - 1) / 2, 0)
 
-  choose.c <- unique(
-    c(
-      c(which(pca.sub.order.Q.1 %in% choose.low)
-        , which(pca.sub.order.Q.2 %in% choose.low)
-        , which(pca.sub.order.T2.1 %in% choose.low)
-        , which(pca.sub.order.T2.2 %in% choose.low))
-      ,
-      c(which(pca.sub.order.Q.1 %in% choose.high)
-        , which(pca.sub.order.Q.2 %in% choose.high)
-        , which(pca.sub.order.T2.1 %in% choose.high)
-        , which(pca.sub.order.T2.2 %in% choose.high))
-      ,
-      c(which(pca.sub.order.Q.1 %in% choose.middle)
-        , which(pca.sub.order.Q.2 %in% choose.middle)
-        , which(pca.sub.order.T2.1 %in% choose.middle)
-        , which(pca.sub.order.T2.2 %in% choose.middle))
-    )
-  )
+  xq1 <- pca.sub.order.Q.1[ pca.sub.order.Q.1 %in% Q.range.1 ]
+  # xq1 <- xq1[ c(1 : n
+  #               , (length(xq1) - n - 1) : length(xq1)
+  #               , seq(length(xq1) / 2 - round((n-1) / 2, 0), length(xq1) / 2 + round((n-1) / 2, 0), 1))]
+  xq2 <- pca.sub.order.Q.2[ pca.sub.order.Q.2 %in% Q.range.2 ]
+  # xq2 <- xq2[ c(1 : n
+  #               , (length(xq2) - n - 1) : length(xq2)
+  #               , seq(length(xq2) / 2 - round((n-1) / 2, 0), length(xq2) / 2 + round((n-1) / 2, 0), 1))]
+  xt21 <- pca.sub.order.T2.1[ pca.sub.order.T2.1 %in% T2.range.1 ]
+  # xt21 <- xt21[ c(1 : n
+  #                 , (length(xt21) - n - 1) : length(xt21)
+  #                 , seq(length(xt21) / 2 - round((n-1) / 2, 0), length(xt21) / 2 + round((n-1) / 2, 0), 1))]
+  xt22 <- pca.sub.order.T2.2[ pca.sub.order.T2.2 %in% T2.range.2 ]
+  # xt22 <- xt22[ c(1 : n
+  #                 , (length(xt22) - n - 1) : length(xt22)
+  #                 , seq(length(xt22) / 2 - round((n-1) / 2, 0), length(xt22) / 2 + round((n-1) / 2, 0), 1))]
 
+  choose.c <- unique( c(xq1, xq2, xt21, xt22))
   return(choose.c)
 }
 
@@ -177,7 +186,7 @@ validation.test <- function(validation.spc = sds$sds$val.lambda1[[ z ]][[ i ]]
 
   spc.val$test <- factor(c(Q.test, T2.test, Q.T2.test
                            # , LOOP.test, iF.test
-                           ), levels = c("valid", "warning", "alarm"))
+  ), levels = c("valid", "warning", "alarm"))
 
   if(table(spc.val$test)[ 2 ] >= 1) spc.val$result <- "warning"
   if(table(spc.val$test)[ 3 ] > 0) spc.val$result <- "warning"
